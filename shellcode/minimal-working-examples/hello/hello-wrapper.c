@@ -1,0 +1,17 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Declaring this as char shellcode[] makes it segfault, but this works */
+char *shellcode = 
+    "\xeb\x20\x48\x31\xc0\x48\x31\xff\x48\x31\xf6"
+    "\x48\x31\xd2\xb0\x01\x48\xff\xc7\x5e\xb2\x06"
+    "\x0f\x05\x48\x31\xc0\x48\x31\xff\xb0\x3c\x0f"
+    "\x05\xe8\xdb\xff\xff\xff\x68\x65\x6c\x6c\x6f\x0a";
+
+
+int main()
+{
+    ((void(*)()) shellcode)();
+    return 0;
+}

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Build the victim
+gcc -o basics basics.c
+
+# Build the hooking library
+# =========================
+# (1) Compile it as a shared library by passing the -fPIC and -shared flags
+# (2) Link against libdl using the -ldl flag. 
+# (3) The -D_GNU_SOURCE flag is specified to satisfy #ifdef conditions 
+#     that allow us to use the RTLD_NEXT enum. Optionally this flag can be 
+#     replaced by adding "#define _GNU_SOURCE" somewhere near the top of
+#     our libexample.c file.
+gcc libhooking.c -o libhooking.so -fPIC -shared -ldl -D_GNU_SOURCE
+
+# After compiling, set the LD_PRELOAD environment variable to point to the 
+# our newly created shared library.
+export LD_PRELOAD="$PWD/libhooking.so"
+
+./basics hello
+./basics jello
+./basics Hello
+./basics Jello

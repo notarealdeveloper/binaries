@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Build the hooking library
+# =========================
+# Same as in the basic example, except for 
+gcc libhooking.c -o libhooking.so -fPIC -shared -lssl -D_GNU_SOURCE
+
+# After compiling, set the LD_PRELOAD environment variable to point to
+# our newly created shared library.
+export LD_PRELOAD="$PWD/libhooking.so"
+
+# Alright! Now that LD_PRELOAD is set we're ready to start intercepting
+# calls to SSL_write on processes executed from here onward. 
+# To test this let's go ahead and use the curl utility over HTTPS and 
+# intercept the HTTPS request.
+curl https://www.netspi.com &> /dev/null
+
+# o_O
+# 
+# As we can see the request has been logged in plaintext, while the
+# application was allowed to function normally. Had this been a scenario
+# where data integrity relied heavily upon SSL encryption and the
+# assumption that man-in-the-middle attacks would be occurring only at
+# the network level, any such integrity would have been compromised. 
+
+# Note: this also writes a logfile when I run pacaur -Syu
+
+# Since the shared library we create will be loaded into the running
+# process' memory space we could do things like dump the memory of the
+# process to examine the memory at runtime or tamper with runtime
+# variables. Other uses for this method of function call hooking and
+# loading generally fall under the use case of user-land rootkits and
+# malware, which will be the focus on the next article in this series.
+#
+# Let's go do it! :D

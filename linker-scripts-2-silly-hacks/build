@@ -1,0 +1,6 @@
+#!/bin/bash
+
+nasm -f elf64 tiny.asm &&
+#ld -o tiny tiny.o &&
+ld -o tiny tiny.o -T linker.ld &&
+./tiny

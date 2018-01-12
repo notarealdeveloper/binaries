@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# gcc -o program program.o -Wl,-R"$PWD" libboop.so
+
+make clean && 
+make && 
+echo && 
+env -i ldd ./program | grep boop | sed -r 's@^\s+@@' && 
+echo && 
+./program 

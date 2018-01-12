@@ -1,0 +1,49 @@
+#!/bin/bash
+
+dd if=/dev/urandom of=blob.bin bs=1 count=16
+
+# Next need to use objcopy to turn this into a linkable file
+# objcopy -I binary -O <target_format> -B <target_architecture> <binary_file> <object_file>
+objcopy -I binary -O elf64-x86-64 -B i386:x86-64 blob.bin blob.o
+
+# This will now show us the symbols we can use to access the data from C
+# objdump -t blob.o
+# 
+# blob.o:     file format elf64-x86-64
+# 
+# SYMBOL TABLE:
+# 0000000000000000 l    d  .data    0000000000000000 .data
+# 0000000000000000 g       .data    0000000000000000 _binary_blob_bin_start
+# 0000000000000010 g       .data    0000000000000000 _binary_blob_bin_end
+# 0000000000000010 g       *ABS*    0000000000000000 _binary_blob_bin_size
+
+gcc -c -o blob-user.o blob-user.c
+gcc -o test blob.o blob-user.o
+./test
+
+
+regenerate_blob_and_relink() {
+    dd if=/dev/urandom of=blob.bin bs=1 count=16 &>/dev/null
+    objcopy -I binary -O elf64-x86-64 -B i386:x86-64 blob.bin blob.o
+    gcc -o test blob.o blob-user.o
+    ./test
+}
+
+# It is also possible to rename the symbols that are created by objcopy 
+# using the "--redefine-sym" option, and also put the data in a section
+# with a different name and different flags, using "--rename-section".
+objcopy_fun_options() {
+    # Change the symbols using objcopy
+    objcopy -I binary -O elf64-x86-64 -B i386:x86-64 \
+        --redefine-sym _binary_blob_bin_start=hotdog_start \
+        --redefine-sym _binary_blob_bin_end=hotdog_end \
+        --redefine-sym _binary_blob_bin_size=hotdog_size \
+        blob.bin blob.o
+
+    cp -v blob-user.c blob-hotdog.c
+    sed -i 's@_binary_blob_bin@hotdog@g' blob-hotdog.c
+
+    gcc -c -o blob-hotdog.o blob-hotdog.c
+    gcc -o hotdog blob.o blob-hotdog.o
+    ./hotdog
+}

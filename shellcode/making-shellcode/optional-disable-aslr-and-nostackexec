@@ -1,0 +1,17 @@
+# NOTE:
+# This doesn't work on Arch, but it may be a good thing to remember nevertheless.
+# Arch has /proc/sys/kernel/randomize_va_space
+# As for the other one, sudo find /proc/sys | grep exec
+# shows /proc/sys/kernel/kexec_load_disabled
+# This may be what I'm looking for, but I'm not sure.
+
+# From http://www.vividmachines.com/shellcode/shellcode.html
+#
+# 10. Why does my program keep segfaulting? Yes, I read item 7 above, but it STILL crashes.
+# You probably are using an operating system with randomized stack and address space and possibly a protection mechanism that prevents you from executing code on the stack. All Linux based operating systems are not the same, so I present a solution for Fedora that should adapt easily.
+
+echo 0 > /proc/sys/kernel/exec-shield           #turn it off
+echo 0 > /proc/sys/kernel/randomize_va_space    #turn it off
+
+echo 1 > /proc/sys/kernel/exec-shield           #turn it on
+echo 1 > /proc/sys/kernel/randomize_va_space    #turn it on

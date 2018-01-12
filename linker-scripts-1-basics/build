@@ -1,0 +1,8 @@
+#!/bin/bash
+
+src="tiny"
+nasm -f elf64 -o "${src}.o" "${src}.asm"
+ld -o tiny1 tiny.o --verbose
+ld -o tiny2 tiny.o -T link.ld
+./tiny1
+./tiny2

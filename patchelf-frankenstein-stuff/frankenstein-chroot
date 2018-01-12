@@ -1,0 +1,116 @@
+#!/bin/bash
+
+# Note to self in the future:
+# This is actually safe to use. Don't be afraid.
+# Just try something like: frankenstein xcowsay
+
+# This program uses patchelf to relink a binary 
+# and all its dependencies into a goofy little
+# self-contained system. It's retarded and cute.
+# Enjoy ;)
+
+### CHROOT VERSION ACTUALLY WORKS!!!
+### To use this, run:
+### ./frankenstein-chroot bash
+### sudo env -i chroot ./bash-chroot/ /bash
+###
+### Can then run it for other commands and copy their weirdly relinked libraries
+### over into the bash chroot, and have a retarded little pseudo-system, lol.
+
+# Make sure we passed an argument
+if [[ -z "$1" ]]; then
+    echo "USAGE: $(basename $0) [name-of-binary-in-path]"
+    exit 1
+fi
+
+# Make sure it exists in our PATH
+if [[ ! -e "$(which "$1")" ]]; then
+    echo "ERROR: Argument $1 doesn't exist in our PATH"
+    exit 1
+fi
+
+progname="$1"
+progpath="$(which "$progname")"
+
+# Make sure it's an ELF file
+FILE_TYPE="$(file -b "$progpath" | cut -f1 -d' ')"
+if [[ "$FILE_TYPE" != "ELF" ]]; then
+    echo "ERROR: Argument $1 doesn't appear to be an ELF executable."
+    exit 1
+fi
+
+# ... GO!
+
+DEPS="${progname}-chroot"
+mkdir -pv "$DEPS"
+
+cp -v  $(which "$progname") "${PWD}"
+
+# Interpreter
+interpreter_path="$(patchelf --print-interpreter "./$progname")"
+interpreter_name="$(basename "$interpreter_path")"
+cp -v "$interpreter_path" "$DEPS/$interpreter_name"
+
+# Loop through the ldd output and replace each library
+ldd "./$progname" | grep '=>' | sed -r -e 's@ => @ @g' -e 's@[(]0x[0-9a-f]+[)]@@g' | while read dep_name dep_path; do
+    echo "$dep_path $dep_name"
+    cp -v "$dep_path" "$DEPS/$dep_name"
+    chmod +w "$DEPS/$dep_name" # Readline weirdly kept being non-writeable, lol. Everything else seemed fine.
+done
+
+patchelf --set-interpreter "./$interpreter_name" "./$progname"
+
+# Additional stuff we need to do
+echo "SETTING RPATH ON MAIN BINARY TO: $(readlink -f "$DEPS")"
+patchelf --set-rpath "." "./$progname"
+
+cd "$DEPS"
+# It seems we can do the following thing to EVERY library except for the interpreter itself.
+# Running this on the interpreter totally fucks the resulting program.
+for library in *.so.*; do 
+    case "$library" in
+        ld-linux-x86-64.so.2) continue;;
+    esac
+    # This doesn't seem to kill the program, at least not when we apply it to ncurses only (inside cmatrix)
+    # which is the only library that uses another library, not counting the obvious ones like libc
+    # UPDATE: Doing this just to libc didn't break it either.
+
+    echo "Patching ${library}"
+    ### XXX: This patches each of the dependency libraries by making its rpath be the ABSOLUTE path of the dependencies directory.
+    ### This works fine, but it's a bit brittle. For example, it breaks when we move the new binary anywhere else.
+    ### patchelf --set-rpath "$(pwd)" "./${library}"
+    ### 
+    ### XXX: UPDATE: This works considerably better. We want the new *binary* to only refer to *one* directory, namely,
+    ### the directory where all its dependencies live, and we want those dependencies to ALL refer only to each other.
+    ### By setting the rpath of the dependencies to the directory where they all live together, we can make this work.
+    ### patchelf --set-rpath "./" "./${library}"
+    ###
+    ### XXX: UPDATE: Good lord I didn't realize quite how crazy this was until now. You can really cause some awful
+    ### difficult to understand bugs by using a relative rpath, and especially by setting your interpreter (i.e., the
+    ### program loader, the ld-linux-x86-64.so.2 thing) to use a relative path. This would actually be pretty nice for malware,
+    ### since basically everything that has to load binaries just breaks unless you're in the right directory.
+    ### This is fucking terrifying and I love it, lol.
+    ### patchelf --set-rpath ".:${DEPS}:$(pwd)" "./${library}"
+
+    patchelf --set-rpath "." "./${library}"
+
+    # Set these guys to use a relative interpreter path, which is really tricky and kinda funny
+    # put should work provided they're all in the same directory together.
+    # XXX: This doesn't seem to be necessary, and it also doesn't seem to work...
+    #patchelf --remove-needed "/lib64/ld-linux-x86-64.so.2" "./${library}"
+    #patchelf --add-needed "$(readlink -f ./${interpreter_name})" "./${library}"
+    #patchelf --set-interpreter "$(readlink -f ./${interpreter_name})" "./${library}"
+
+    ldd "./$library" | grep '=>' | sed -r -e 's@ => @ @g' -e 's@[(]0x[0-9a-f]+[)]@@g' | while read dep_name dep_path; do
+        case "$library" in
+            ld-linux-x86-64.so.2) continue;;
+        esac
+        ### XXX: Any operations we decide to do on every DEPENDENCY of every DEPENDENCY should go here.
+        ### Note: Thus far, this seems to be a really bad idea.
+        # patchelf --replace-needed "$dep_name" "$(readlink -f "$DEPS")/$dep_name" "./$library"
+        # patchelf --replace-needed "$dep_name" "$(readlink -f "$DEPS")/$(basename $dep_name)" "./$library"
+    done
+done
+cd ..
+
+mv "./$progname" "$DEPS"

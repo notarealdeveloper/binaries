@@ -1,0 +1,16 @@
+#!/bin/bash
+
+
+# 1: Write some position-independent assembly, as in $f.asm
+f=filename
+
+# 2. Assemble and link:
+nasm -f elf64 $f.asm -o $f.o && ld -o $f $f.o
+
+# 3. objdump -d $f -M intel   # Make sure no nulls in the code!
+
+# 4. Run the following command:
+objdump -d ./$f | grep -Po '(?<=:)(\s[a-f\d]{2})+' \
+    | tr '\t\n' ' ' | tr -s ' ' | sed -e 's@ $@\n@g' -e 's@ @\\x@g'
+
+

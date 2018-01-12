@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# gcc -o program program.o -Wl,-R/home/jason/Desktop libboop.so
+
+rm -f program && 
+make program && 
+echo && 
+env -i ldd ./program | grep boop | sed -r 's@^\s+@@' && 
+echo && 
+./program 

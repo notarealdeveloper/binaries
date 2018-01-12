@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Build the hooking library
+# =========================
+# Same as in the basic example, except for 
+gcc libhooking.c -o libhooking.so -fPIC -shared -ldl -lc -D_GNU_SOURCE
+
+# After compiling, set the LD_PRELOAD environment variable to point to
+# our newly created shared library.
+export LD_PRELOAD="$PWD/libhooking.so"
