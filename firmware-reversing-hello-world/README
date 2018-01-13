@@ -1,0 +1,24 @@
+# A fun sort of "hello world" of firmware reversing.
+# Aka, the first few primitives we need to get up and running.
+
+# (1) Downloaded a random router firmware:
+
+# (2) Ran binwalk on it.
+
+binwalk wndr3300_1_0_14_na_only.chk
+
+DECIMAL       HEXADECIMAL     DESCRIPTION
+--------------------------------------------------------------------------------
+58            0x3A            TRX firmware header, little endian, image size: 3334144 bytes, CRC32: 0x7CAF0652, flags: 0x0, version: 1, header size: 28 bytes, loader offset: 0x1C, linux kernel offset: 0x727F8, rootfs offset: 0x0
+86            0x56            LZMA compressed data, properties: 0x5D, dictionary size: 8388608 bytes, uncompressed size: 1470464 bytes
+469042        0x72832         Squashfs filesystem, little endian, version 2.1, size: 2860511 bytes, 381 inodes, blocksize: 65536 bytes, created: 2008-01-11 04:59:21
+
+# (3) Rip out the squashfs filesystem: (Note: The bs=1 part is important)
+dd if=wndr3300_1_0_14_na_only.chk skip=469042 bs=1 of=firmware.sqfs
+
+# (4) Run unsquashfs on it:
+unsquashfs firmware.sqfs
+
+# BAM. You can now navigate around in the tiny embedded Linux distro!
+
+# Note to self: This is really fun. <3 O_O <3
